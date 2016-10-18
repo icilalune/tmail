@@ -112,7 +112,7 @@ func (ms *microservice) exec(s *SMTPServerSession, queryMsg *[]byte) (response *
 		return
 	}
 	// call ms
-	s.log("calling " + ms.url)
+	s.Log("calling " + ms.url)
 	if ms.fireAndForget {
 		go ms.call(queryMsg)
 		return
@@ -140,7 +140,7 @@ func (ms *microservice) handleSMTPError(err error, s *SMTPServerSession) (stop b
 	if err == nil {
 		return false
 	}
-	s.logError("microservice " + ms.url + " failed. " + err.Error())
+	s.LogError("microservice " + ms.url + " failed. " + err.Error())
 	switch ms.onFailure {
 	case PERMFAIL:
 		s.out("550 sorry something wrong happened")
@@ -161,7 +161,7 @@ func handleSMTPResponse(smtpResponse *msproto.SmtpResponse, s *SMTPServerSession
 	if smtpResponse.GetCode() != 0 && smtpResponse.GetMsg() != "" {
 		reply := fmt.Sprintf("%d %s", smtpResponse.GetCode(), smtpResponse.GetMsg())
 		s.out(reply)
-		s.log("smtp response from microservice sent to client: " + reply)
+		s.Log("smtp response from microservice sent to client: " + reply)
 		// if reply is sent we do not continue processing this command
 		stop = true
 	}
@@ -177,11 +177,11 @@ func msSmtpdNewClient(s *SMTPServerSession) (stop bool) {
 
 	// serialize message to send
 	msg, err := proto.Marshal(&msproto.SmtpdNewClientQuery{
-		SessionId: proto.String(s.uuid),
+		SessionId: proto.String(s.UUID),
 		RemoteIp:  proto.String(s.conn.RemoteAddr().String()),
 	})
 	if err != nil {
-		s.logError("unable to serialize data as SmtpdNewClientMsg. " + err.Error())
+		s.LogError("unable to serialize data as SmtpdNewClientMsg. " + err.Error())
 		return
 	}
 
@@ -189,13 +189,13 @@ func msSmtpdNewClient(s *SMTPServerSession) (stop bool) {
 		stop = false
 		ms, err := newMicroservice(uri)
 		if err != nil {
-			s.logError("unable to parse microservice url " + uri + ". " + err.Error())
+			s.LogError("unable to parse microservice url " + uri + ". " + err.Error())
 			continue
 		}
 
 		response, err := ms.exec(s, &msg)
 		if err != nil {
-			s.logError("microservice " + ms.url + " failed. " + err.Error())
+			s.LogError("microservice " + ms.url + " failed. " + err.Error())
 			if ms.stopOnError() {
 				return
 			}
@@ -204,7 +204,7 @@ func msSmtpdNewClient(s *SMTPServerSession) (stop bool) {
 		// parse resp
 		msResponse := &msproto.SmtpdNewClientResponse{}
 		if err = proto.Unmarshal(*response, msResponse); err != nil {
-			s.logError("microservice " + ms.url + " failed. " + err.Error())
+			s.LogError("microservice " + ms.url + " failed. " + err.Error())
 			if ms.stopOnError() {
 				return
 			}
@@ -239,28 +239,28 @@ func msSmtpdHelo(s *SMTPServerSession, helo []string) (stop bool) {
 	}
 	// Query
 	msg, err := proto.Marshal(&msproto.SmtpdHeloQuery{
-		SessionId: proto.String(s.uuid),
+		SessionId: proto.String(s.UUID),
 		Helo:      proto.String(strings.Join(helo, " ")),
 	})
 	if err != nil {
-		s.logError("ms - unable marshall SmtpdHeloQuery " + err.Error())
+		s.LogError("ms - unable marshall SmtpdHeloQuery " + err.Error())
 		return
 	}
 
 	for _, uri := range uris {
 		ms, err = newMicroservice(uri)
 		if err != nil {
-			s.logError("ms - unable to init microservice msSmtpdHelo -" + err.Error())
+			s.LogError("ms - unable to init microservice msSmtpdHelo -" + err.Error())
 			continue
 		}
 		if response, err = ms.exec(s, &msg); err != nil {
-			s.logError("ms - unable to call microservice msSmtpdHelo -" + err.Error())
+			s.LogError("ms - unable to call microservice msSmtpdHelo -" + err.Error())
 			continue
 		}
 		// unmarshal response
 		msResponse = &msproto.SmtpdHeloResponse{}
 		if err = proto.Unmarshal(*response, msResponse); err != nil {
-			s.logError("microservice " + ms.url + " failed. " + err.Error())
+			s.LogError("microservice " + ms.url + " failed. " + err.Error())
 			if ms.stopOnError() {
 				return
 			}
@@ -295,28 +295,28 @@ func msSmtpdMailFrom(s *SMTPServerSession, mailFrom []string) (stop bool) {
 	}
 	// Query
 	msg, err := proto.Marshal(&msproto.SmtpdMailFromQuery{
-		SessionId: proto.String(s.uuid),
+		SessionId: proto.String(s.UUID),
 		From:      proto.String(strings.Join(mailFrom, " ")),
 	})
 	if err != nil {
-		s.logError("ms - unable marshall SmtpdMailFromQuery " + err.Error())
+		s.LogError("ms - unable marshall SmtpdMailFromQuery " + err.Error())
 		return
 	}
 
 	for _, uri := range uris {
 		ms, err = newMicroservice(uri)
 		if err != nil {
-			s.logError("ms - unable to init microservice SmtpdMailFromQuery -" + err.Error())
+			s.LogError("ms - unable to init microservice SmtpdMailFromQuery -" + err.Error())
 			continue
 		}
 		if response, err = ms.exec(s, &msg); err != nil {
-			s.logError("ms - unable to call microservice SmtpdMailFromQuery -" + err.Error())
+			s.LogError("ms - unable to call microservice SmtpdMailFromQuery -" + err.Error())
 			continue
 		}
 		// unmarshal response
 		msResponse = &msproto.SmtpdMailFromResponse{}
 		if err = proto.Unmarshal(*response, msResponse); err != nil {
-			s.logError("microservice " + ms.url + " failed. " + err.Error())
+			s.LogError("microservice " + ms.url + " failed. " + err.Error())
 			if ms.stopOnError() {
 				return
 			}
@@ -343,12 +343,12 @@ func msSmtpdRcptTo(s *SMTPServerSession, rcptTo string) (stop bool) {
 		return false
 	}
 	msg, err := proto.Marshal(&msproto.SmtpdRcptToQuery{
-		SessionId: proto.String(s.uuid),
+		SessionId: proto.String(s.UUID),
 		MailFrom:  proto.String(s.envelope.MailFrom),
 		RcptTo:    proto.String(rcptTo),
 	})
 	if err != nil {
-		s.logError("unable to serialize data as SmtpdRcptToQuery. " + err.Error())
+		s.LogError("unable to serialize data as SmtpdRcptToQuery. " + err.Error())
 		return
 	}
 
@@ -356,7 +356,7 @@ func msSmtpdRcptTo(s *SMTPServerSession, rcptTo string) (stop bool) {
 		stop = false
 		ms, err := newMicroservice(uri)
 		if err != nil {
-			s.logError("unable to parse microservice url " + uri + ". " + err.Error())
+			s.LogError("unable to parse microservice url " + uri + ". " + err.Error())
 			continue
 		}
 
@@ -365,7 +365,7 @@ func msSmtpdRcptTo(s *SMTPServerSession, rcptTo string) (stop bool) {
 		}
 
 		// call ms
-		s.log("calling " + ms.url)
+		s.Log("calling " + ms.url)
 		if ms.fireAndForget {
 			go ms.call(&msg)
 			continue
@@ -417,11 +417,11 @@ func smtpdData(s *SMTPServerSession, rawMail *[]byte) (stop bool, extraHeaders *
 	// save data to server throught HTTP
 	f, err := ioutil.TempFile(Cfg.GetTempDir(), "")
 	if err != nil {
-		s.logError("ms - unable to save rawmail in tempfile. " + err.Error())
+		s.LogError("ms - unable to save rawmail in tempfile. " + err.Error())
 		return false, extraHeaders
 	}
 	if _, err = f.Write(*rawMail); err != nil {
-		s.logError("ms - unable to save rawmail in tempfile. " + err.Error())
+		s.LogError("ms - unable to save rawmail in tempfile. " + err.Error())
 		return false, extraHeaders
 	}
 	defer os.Remove(f.Name())
@@ -439,12 +439,12 @@ func smtpdData(s *SMTPServerSession, rawMail *[]byte) (stop bool, extraHeaders *
 
 	// serialize data
 	msg, err := proto.Marshal(&msproto.SmtpdDataQuery{
-		SessionId: proto.String(s.uuid),
+		SessionId: proto.String(s.UUID),
 		DataLink:  proto.String(link),
 		Enveloppe: proto.String(s.envelope.String()),
 	})
 	if err != nil {
-		s.logError("unable to serialize data as SmtpdDataQuery. " + err.Error())
+		s.LogError("unable to serialize data as SmtpdDataQuery. " + err.Error())
 		return
 	}
 
@@ -452,14 +452,14 @@ func smtpdData(s *SMTPServerSession, rawMail *[]byte) (stop bool, extraHeaders *
 		// parse uri
 		ms, err := newMicroservice(uri)
 		if err != nil {
-			s.logError("unable to parse microservice url " + uri + ". " + err.Error())
+			s.LogError("unable to parse microservice url " + uri + ". " + err.Error())
 			continue
 		}
 		if s.user != nil && ms.skipAuthentifiedUser {
 			continue
 		}
 
-		s.log("calling " + ms.url)
+		s.Log("calling " + ms.url)
 		response, err := ms.call(&msg)
 		if err != nil {
 			if stop := ms.handleSMTPError(err, s); stop {
@@ -501,7 +501,7 @@ func msSmtpdSendTelemetry(s *SMTPServerSession) {
 	}
 	telemetry := msproto.SmtpdTelemetry{}
 	telemetry.ServerId = proto.String(Cfg.GetMe())
-	telemetry.SessionId = proto.String(s.uuid)
+	telemetry.SessionId = proto.String(s.UUID)
 	telemetry.RemoteAddress = proto.String(s.remoteAddr)
 	telemetry.EnvMailfrom = proto.String(s.envelope.MailFrom)
 	telemetry.EnvRcptto = s.envelope.RcptTo
@@ -535,7 +535,7 @@ func msSmtpdSendTelemetry(s *SMTPServerSession) {
 				continue
 			}
 		}
-	}(s.uuid)
+	}(s.UUID)
 	return
 }
 
@@ -551,7 +551,7 @@ func msSmtpdBeforeQueueing(s *SMTPServerSession) bool {
 		// parse uri
 		ms, err := newMicroservice(uri)
 		if err != nil {
-			s.logError("unable to get microservice " + uri)
+			s.LogError("unable to get microservice " + uri)
 			if ms.handleSMTPError(err, s) {
 				return true
 			}
@@ -559,12 +559,12 @@ func msSmtpdBeforeQueueing(s *SMTPServerSession) bool {
 		}
 		// Query -> warning order is important
 		query, err := proto.Marshal(&msproto.SmtpdBeforeQueueingQuery{
-			SessionId: proto.String(s.uuid),
+			SessionId: proto.String(s.UUID),
 			MailFrom:  proto.String(s.envelope.MailFrom),
 			RcptTo:    s.envelope.RcptTo,
 		})
 		if err != nil {
-			s.logError("unable to serialize ms message for msSmtpdBeforeQueueing - ", err.Error())
+			s.LogError("unable to serialize ms message for msSmtpdBeforeQueueing - ", err.Error())
 			if ms.handleSMTPError(err, s) {
 				return true
 			}
@@ -573,7 +573,7 @@ func msSmtpdBeforeQueueing(s *SMTPServerSession) bool {
 
 		response, err := ms.call(&query)
 		if err != nil {
-			s.logError("msSmtpdBeforeQueueing failed on call " + err.Error())
+			s.LogError("msSmtpdBeforeQueueing failed on call " + err.Error())
 			if ms.handleSMTPError(err, s) {
 				return true
 			}
@@ -583,7 +583,7 @@ func msSmtpdBeforeQueueing(s *SMTPServerSession) bool {
 		msResponse := &msproto.SmtpdBeforeQueueingResponse{}
 		err = proto.Unmarshal(*response, msResponse)
 		if err != nil {
-			s.logError("unable to unmarshal response from ms SmtpdBeforeQueueingResponse")
+			s.LogError("unable to unmarshal response from ms SmtpdBeforeQueueingResponse")
 			if ms.handleSMTPError(err, s) {
 				return true
 			}

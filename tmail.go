@@ -155,7 +155,7 @@ func main() {
 			nsqd := nsqd.New(opts)
 			nsqd.LoadMetadata()
 			if err = nsqd.PersistMetadata(); err != nil {
-				log.Fatalf("ERROR: failed to persist metadata - %s", err.Error())
+				log.Fatalf("ERROR: failed to persist metadata - %s", err)
 			}
 			nsqd.Main()
 

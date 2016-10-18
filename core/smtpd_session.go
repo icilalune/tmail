@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/mail"
 	"path"
-	"plugin"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -53,10 +52,11 @@ type SMTPServerSession struct {
 	dataBytes        uint32
 	startAt          time.Time
 	exiting          bool
+	plugin           func(s *SMTPServerSession) (bool, error)
 }
 
 // NewSMTPServerSession returns a new SMTP session
-func NewSMTPServerSession(conn net.Conn, isTLS bool) (sss *SMTPServerSession, err error) {
+func NewSMTPServerSession(conn net.Conn, isTLS bool, plugin func(s *SMTPServerSession) (bool, error)) (sss *SMTPServerSession, err error) {
 	sss = new(SMTPServerSession)
 	sss.UUID, err = NewUUID()
 	if err != nil {
@@ -86,6 +86,8 @@ func NewSMTPServerSession(conn net.Conn, isTLS bool) (sss *SMTPServerSession, er
 	sss.exitasap = make(chan int, 1)
 	sss.timeout = time.Duration(Cfg.GetSmtpdServerTimeout()) * time.Second
 	sss.timer = time.AfterFunc(sss.timeout, sss.raiseTimeout)
+
+	sss.plugin = plugin
 
 	return
 }
@@ -200,24 +202,13 @@ func (s *SMTPServerSession) smtpGreeting() {
 	s.Log(fmt.Sprintf("starting new transaction %d/%d", SmtpSessionsCount, Cfg.GetSmtpdConcurrencyIncoming()))
 
 	// plugin
-	p, err := plugin.Open("newclient.so")
+	stop, err := s.plugin(s)
+	s.LogDebug(fmt.Sprintf("run done"))
 	if err != nil {
-		s.LogError("unable to load plugin newclient.so")
-	} else {
-		f, err := p.Lookup("Run")
-		if err != nil {
-			s.LogError("unnable to lookup Run symbol on plugin newclient - " + err.Error())
-		} else {
-			run := f.(func(s SMTPServerSession) (bool, error))
-			stop, err := run(*s)
-			s.LogDebug(fmt.Sprintf("run done"))
-			if err != nil {
-				s.LogError("on plugin newclient - " + err.Error())
-			}
-			if stop {
-				return
-			}
-		}
+		s.LogError("on plugin newclient - " + err.Error())
+	}
+	if stop {
+		return
 	}
 
 	o := "220 " + Cfg.GetMe() + " ESMTP"

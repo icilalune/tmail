@@ -5,6 +5,9 @@ import (
 	"log"
 	"net"
 	"path"
+	"plugin"
+
+	"github.com/toorop/tmail/core"
 )
 
 // Smtpd SMTP Server
@@ -22,6 +25,21 @@ func (s *Smtpd) ListenAndServe() {
 	var listener net.Listener
 	var err error
 	var tlsConfig *tls.Config
+	var newClientPlugin func(s *core.SMTPServerSession) (bool, error)
+
+	// Plugin
+	// load Plugin
+	p, err := plugin.Open("newclient.so")
+	if err != nil {
+		log.Fatalf("ERROR: unable to load plugin - %s", err)
+	} else {
+		f, err := p.Lookup("Run")
+		if err != nil {
+			log.Fatalln("unnable to lookup Run symbol on plugin newclient - " + err.Error())
+		}
+		newClientPlugin = f.(func(s *core.SMTPServerSession) (bool, error))
+	}
+
 	// SSL ?
 	if s.dsn.ssl {
 		cert, err := tls.LoadX509KeyPair(path.Join(GetBasePath(), "ssl/server.crt"), path.Join(GetBasePath(), "ssl/server.key"))
@@ -55,7 +73,7 @@ func (s *Smtpd) ListenAndServe() {
 				go func(conn net.Conn) {
 					ChSmtpSessionsCount <- 1
 					defer func() { ChSmtpSessionsCount <- -1 }()
-					sss, err := NewSMTPServerSession(conn, s.dsn.ssl)
+					sss, err := NewSMTPServerSession(conn, s.dsn.ssl, newClientPlugin)
 					if err != nil {
 						log.Println("unable to get new SmtpServerSession.", err)
 					} else {

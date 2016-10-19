@@ -6,8 +6,6 @@ import (
 	"net"
 	"path"
 	"plugin"
-
-	"github.com/toorop/tmail/core"
 )
 
 // Smtpd SMTP Server
@@ -25,7 +23,7 @@ func (s *Smtpd) ListenAndServe() {
 	var listener net.Listener
 	var err error
 	var tlsConfig *tls.Config
-	var newClientPlugin func(s *core.SMTPServerSession) (bool, error)
+	var newClientPlugin func(s *SMTPServerSession) (bool, error)
 
 	// Plugin
 	// load Plugin
@@ -37,7 +35,7 @@ func (s *Smtpd) ListenAndServe() {
 		if err != nil {
 			log.Fatalln("unnable to lookup Run symbol on plugin newclient - " + err.Error())
 		}
-		newClientPlugin = f.(func(s *core.SMTPServerSession) (bool, error))
+		newClientPlugin = f.(func(s *SMTPServerSession) (bool, error))
 	}
 
 	// SSL ?
